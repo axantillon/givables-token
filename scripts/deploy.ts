@@ -2,7 +2,9 @@ const hre = require("hardhat")
 
 const main = async () => {
   const nftContractFactory = await hre.ethers.getContractFactory("Givables");
-  const nftContract = await nftContractFactory.deploy();
+  const nftContract = await nftContractFactory.deploy(
+    "https://gateway.pinata.cloud/ipfs/QmfWjdKg52pzfUw4pkDjx5AzBUfvAUk3bopSnsY4cBEjk8"
+  );
   await nftContract.deployed();
   console.log("Contract deployed to:", nftContract.address);
 
@@ -12,6 +14,10 @@ const main = async () => {
   );
   // Wait for it to be mined.
   await txn.wait();
+
+  let json = await nftContract.tokenURI(0);
+
+  console.log(json)
 };
 
 const runMain = async () => {

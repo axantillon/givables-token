@@ -2,28 +2,21 @@
 
 pragma solidity ^0.8.0;
 
-import "@openzeppelin/contracts/token/ERC721/extensions/ERC721URIStorage.sol";
+import "@openzeppelin/contracts/token/ERC721/extensions/ERC721Enumerable.sol";
 import "@openzeppelin/contracts/utils/Counters.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "hardhat/console.sol";
 
-contract Givables is ERC721URIStorage, Ownable {
+contract Givables is Ownable, ERC721Enumerable {
     mapping(address => bool) public claimed;
     mapping(address => bool) private admins;
 
-    string baseSvg =
-        "<svg xmlns='http://www.w3.org/2000/svg' preserveAspectRatio='xMinYMin meet' viewBox='0 0 350 350'><style>.base { fill: white; font-family: serif; font-size: 24px; }</style><rect width='100%' height='100%' fill='black' /><text x='50%' y='50%' class='base' dominant-baseline='middle' text-anchor='middle'>";
+    string baseURI;
 
     using Counters for Counters.Counter;
     Counters.Counter private _tokenIdTracker;
 
     bool allowsTransfers = false;
-
-    struct Cohort {
-        uint128 limit;
-        uint128 tokenMinted;
-        bytes32 merkleRoot;
-    }
 
     event Claim(
         address indexed _receiver,
@@ -31,8 +24,9 @@ contract Givables is ERC721URIStorage, Ownable {
         bool _isAdmin
     );
 
-    constructor() ERC721("Givables", "GVB") {
+    constructor(string memory _baseURI) ERC721("Givables", "GVB") {
         admins[msg.sender] = true;
+        baseURI = _baseURI;
     }
 
     modifier onlyAdmin() {
@@ -54,50 +48,31 @@ contract Givables is ERC721URIStorage, Ownable {
         uint256 newTokenId = _tokenIdTracker.current();
         _safeMint(to, newTokenId);
         emit Claim(to, newTokenId, _isAdmin);
-
-        setTokenURI(newTokenId);
         _tokenIdTracker.increment();
 
         return newTokenId;
     }
 
-    function setTokenURI(uint256 _tokenId) internal onlyAdmin {
-        string memory svg = string(
-            abi.encodePacked(baseSvg, "Givables #", toString(_tokenId), "</text></svg>")
-        );
-
-        console.log("\n-------SVG----------");
-        console.log(svg);
-        console.log("--------------------\n");
-
+    function tokenURI(uint256 _tokenId) override public view returns (string memory) {
         string memory json = Base64.encode(
             bytes(
                 string(
                     abi.encodePacked(
                         '{"name": "Givables #',
                         toString(_tokenId),
-                        '", "description": "Access to the Givables community of Undergraduate Artists", "image": "data:image/svg+xml;base64,',
-                        // We add data:image/svg+xml;base64 and then append our base64 encode our svg.
-                        Base64.encode(bytes(svg)),
-                        '"}'
+                        '","description": "Access to the Givables community of Undergraduate Artists",',
+                        '"image": "', baseURI,'"}'
                     )
                 )
             )
         );
 
-        console.log("\n------JSON----------");
-        console.log(json);
-        console.log("--------------------\n");
-
-        _setTokenURI(
-            _tokenId,
-            string(abi.encodePacked("data:application/json;base64,", json))
-        );
+        return string(abi.encodePacked("data:application/json;base64,", json));
     }
 
     function toString(uint256 value) internal pure returns (string memory) {
-        // Inspired by OraclizeAPI's implementation - MIT license
-        // https://github.com/oraclize/ethereum-api/blob/b42146b063c7d6ee1358846c198246239e9360e8/oraclizeAPI_0.4.25.sol
+    // Inspired by OraclizeAPI's implementation - MIT license
+    // https://github.com/oraclize/ethereum-api/blob/b42146b063c7d6ee1358846c198246239e9360e8/oraclizeAPI_0.4.25.sol
 
         if (value == 0) {
             return "0";
@@ -147,8 +122,7 @@ contract Givables is ERC721URIStorage, Ownable {
 /// @notice Provides a function for encoding some bytes in base64
 /// @author Brecht Devos <brecht@loopring.org>
 library Base64 {
-    bytes internal constant TABLE =
-        "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+    bytes internal constant TABLE = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
 
     /// @notice Encodes some bytes to the base64 representation
     function encode(bytes memory data) internal pure returns (string memory) {
@@ -177,20 +151,11 @@ library Base64 {
 
                 let out := mload(add(tablePtr, and(shr(18, input), 0x3F)))
                 out := shl(8, out)
-                out := add(
-                    out,
-                    and(mload(add(tablePtr, and(shr(12, input), 0x3F))), 0xFF)
-                )
+                out := add(out, and(mload(add(tablePtr, and(shr(12, input), 0x3F))), 0xFF))
                 out := shl(8, out)
-                out := add(
-                    out,
-                    and(mload(add(tablePtr, and(shr(6, input), 0x3F))), 0xFF)
-                )
+                out := add(out, and(mload(add(tablePtr, and(shr(6, input), 0x3F))), 0xFF))
                 out := shl(8, out)
-                out := add(
-                    out,
-                    and(mload(add(tablePtr, and(input, 0x3F))), 0xFF)
-                )
+                out := add(out, and(mload(add(tablePtr, and(input, 0x3F))), 0xFF))
                 out := shl(224, out)
 
                 mstore(resultPtr, out)
