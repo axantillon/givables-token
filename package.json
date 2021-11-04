@@ -4,8 +4,9 @@
   "main": "index.js",
   "license": "MIT",
   "scripts": {
-    "deploy-local": "npx hardhat run scripts/deploy.ts",
-    "deploy-rinkeby": "npx hardhat run scripts/deploy.ts --network rinkeby"
+    "deploy": "npx hardhat run scripts/deploy.ts",
+    "deploy-rinkeby": "npx hardhat run scripts/deploy.ts --network rinkeby",
+    "deploy-polygon": "npx hardhat run scripts/deploy.ts --network polygon"
   },
   "devDependencies": {
     "@nomiclabs/hardhat-ethers": "^2.0.0",

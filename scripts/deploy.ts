@@ -3,7 +3,8 @@ const hre = require("hardhat")
 const main = async () => {
   const nftContractFactory = await hre.ethers.getContractFactory("Givables");
   const nftContract = await nftContractFactory.deploy(
-    "https://gateway.pinata.cloud/ipfs/QmfWjdKg52pzfUw4pkDjx5AzBUfvAUk3bopSnsY4cBEjk8"
+    "https://www.givables.xyz/assets/token_art.jpg",
+    "Access to the Givables community of Undergraduate Artists"
   );
   await nftContract.deployed();
   console.log("Contract deployed to:", nftContract.address);
@@ -16,6 +17,13 @@ const main = async () => {
   await txn.wait();
 
   let json = await nftContract.tokenURI(0);
+
+  console.log(json)
+
+  await nftContract.updateTokenURI("we changed bby");
+  await nftContract.updateDescription("we changed bby");
+
+  json = await nftContract.tokenURI(0);
 
   console.log(json)
 };

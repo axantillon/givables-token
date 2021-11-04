@@ -1,17 +1,30 @@
 // SPDX-License-Identifier: GPL-3.0
+/*
+          ________.__             ___.   .__                 
+         /  _____/|__|__  _______ \_ |__ |  |   ____   ______
+        /   \  ___|  \  \/ /\__  \ | __ \|  | _/ __ \ /  ___/
+        \    \_\  \  |\   /  / __ \| \_\ \  |_\  ___/ \___ \ 
+         \______  /__| \_/  (____  /___  /____/\___  >____  >
+                \/               \/    \/          \/     \/ 
+
+Authored by: axantillon.eth
+Credits:
+Structure for URI handling based from (DEVS) 0x25ed58c027921E14D86380eA2646E3a1B5C55A8b
+Structure for Admin Mgmt and token issuing (Buildspace) 0x322A88a26C23D45c7887711caDF055275701738E
+*/
 
 pragma solidity ^0.8.0;
 
 import "@openzeppelin/contracts/token/ERC721/extensions/ERC721Enumerable.sol";
 import "@openzeppelin/contracts/utils/Counters.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
-import "hardhat/console.sol";
 
 contract Givables is Ownable, ERC721Enumerable {
     mapping(address => bool) public claimed;
     mapping(address => bool) private admins;
 
     string baseURI;
+    string description;
 
     using Counters for Counters.Counter;
     Counters.Counter private _tokenIdTracker;
@@ -24,9 +37,10 @@ contract Givables is Ownable, ERC721Enumerable {
         bool _isAdmin
     );
 
-    constructor(string memory _baseURI) ERC721("Givables", "GVB") {
+    constructor(string memory _baseURI, string memory _desc) ERC721("Givables", "GVB") {
         admins[msg.sender] = true;
         baseURI = _baseURI;
+        description = _desc;
     }
 
     modifier onlyAdmin() {
@@ -53,15 +67,35 @@ contract Givables is Ownable, ERC721Enumerable {
         return newTokenId;
     }
 
-    function tokenURI(uint256 _tokenId) override public view returns (string memory) {
+    function adminIssueToken(address to) external onlyAdmin returns (uint256) {
+        return issueToken(to, true);
+    }
+
+    function setAllowsTransfers(bool _allowsTransfers) external onlyAdmin {
+        allowsTransfers = _allowsTransfers;
+    }
+
+    function updateAdmin(address _admin, bool isAdmin) external onlyOwner {
+        admins[_admin] = isAdmin;
+    }
+
+    function tokenURI(uint256 _tokenId)
+        public
+        view
+        override
+        returns (string memory)
+    {
         string memory json = Base64.encode(
             bytes(
                 string(
                     abi.encodePacked(
                         '{"name": "Givables #',
                         toString(_tokenId),
-                        '","description": "Access to the Givables community of Undergraduate Artists",',
-                        '"image": "', baseURI,'"}'
+                        '","description": "',
+                        description,
+                        '","image": "',
+                        baseURI,
+                        '"}'
                     )
                 )
             )
@@ -70,9 +104,29 @@ contract Givables is Ownable, ERC721Enumerable {
         return string(abi.encodePacked("data:application/json;base64,", json));
     }
 
+    function updateTokenURI(string memory _uri) external onlyAdmin {
+        baseURI = _uri;
+    }
+
+    function updateDescription(string memory _desc) external onlyAdmin {
+        description = _desc;
+    }
+
+    function _beforeTokenTransfer(
+        address from,
+        address to,
+        uint256 tokenId
+    ) internal virtual override {
+        require(
+            from == address(0) || to == address(0) || allowsTransfers,
+            "Not allowed to transfer"
+        );
+        return super._beforeTokenTransfer(from, to, tokenId);
+    }
+
     function toString(uint256 value) internal pure returns (string memory) {
-    // Inspired by OraclizeAPI's implementation - MIT license
-    // https://github.com/oraclize/ethereum-api/blob/b42146b063c7d6ee1358846c198246239e9360e8/oraclizeAPI_0.4.25.sol
+        // Inspired by OraclizeAPI's implementation - MIT license
+        // https://github.com/oraclize/ethereum-api/blob/b42146b063c7d6ee1358846c198246239e9360e8/oraclizeAPI_0.4.25.sol
 
         if (value == 0) {
             return "0";
@@ -91,30 +145,6 @@ contract Givables is Ownable, ERC721Enumerable {
         }
         return string(buffer);
     }
-
-    function adminIssueToken(address to) external onlyAdmin returns (uint256) {
-        return issueToken(to, true);
-    }
-
-    function setAllowsTransfers(bool _allowsTransfers) external onlyAdmin {
-        allowsTransfers = _allowsTransfers;
-    }
-
-    function updateAdmin(address _admin, bool isAdmin) external onlyOwner {
-        admins[_admin] = isAdmin;
-    }
-
-    function _beforeTokenTransfer(
-        address from,
-        address to,
-        uint256 tokenId
-    ) internal virtual override {
-        require(
-            from == address(0) || to == address(0) || allowsTransfers,
-            "Not allowed to transfer"
-        );
-        return super._beforeTokenTransfer(from, to, tokenId);
-    }
 }
 
 /// [MIT License]
@@ -122,7 +152,8 @@ contract Givables is Ownable, ERC721Enumerable {
 /// @notice Provides a function for encoding some bytes in base64
 /// @author Brecht Devos <brecht@loopring.org>
 library Base64 {
-    bytes internal constant TABLE = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+    bytes internal constant TABLE =
+        "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
 
     /// @notice Encodes some bytes to the base64 representation
     function encode(bytes memory data) internal pure returns (string memory) {
@@ -151,11 +182,20 @@ library Base64 {
 
                 let out := mload(add(tablePtr, and(shr(18, input), 0x3F)))
                 out := shl(8, out)
-                out := add(out, and(mload(add(tablePtr, and(shr(12, input), 0x3F))), 0xFF))
+                out := add(
+                    out,
+                    and(mload(add(tablePtr, and(shr(12, input), 0x3F))), 0xFF)
+                )
                 out := shl(8, out)
-                out := add(out, and(mload(add(tablePtr, and(shr(6, input), 0x3F))), 0xFF))
+                out := add(
+                    out,
+                    and(mload(add(tablePtr, and(shr(6, input), 0x3F))), 0xFF)
+                )
                 out := shl(8, out)
-                out := add(out, and(mload(add(tablePtr, and(input, 0x3F))), 0xFF))
+                out := add(
+                    out,
+                    and(mload(add(tablePtr, and(input, 0x3F))), 0xFF)
+                )
                 out := shl(224, out)
 
                 mstore(resultPtr, out)
