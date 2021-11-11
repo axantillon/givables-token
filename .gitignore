@@ -8,3 +8,5 @@ typechain
 cache
 artifacts
 hardhat.config.js
+
+contracts/verify-polygon
